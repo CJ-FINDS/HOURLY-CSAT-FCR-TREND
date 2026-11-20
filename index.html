@@ -24,35 +24,37 @@ header{padding:28px 20px 8px;text-align:center;position:relative}
 h1{margin:0;font-size:13px;letter-spacing:.3em;color:var(--muted)}
 h2.title{margin:6px 0 0;font-size:clamp(22px,4vw,34px);letter-spacing:.04em}
 .note{max-width:1200px;margin:10px auto 0;padding:0 20px;text-align:center;font-size:13px;color:var(--muted)}
-.tabs-wrap{max-width:1200px;margin:18px auto 0;padding:0 20px}
+.sheet-tabs-wrap{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin:0 0 12px;padding-bottom:10px;border-bottom:1px solid var(--soft);
+}
 .tabs{
-  display:flex;gap:8px;justify-content:center;flex-wrap:wrap;
+  display:flex;gap:6px;flex-wrap:wrap;flex:1;
 }
 .tabs button{
-  font:inherit;font-weight:800;font-size:12px;letter-spacing:.12em;
+  font:inherit;font-weight:800;font-size:11px;letter-spacing:.1em;
   color:var(--text);background:transparent;
-  border:1px solid var(--edge);border-radius:10px;
-  padding:9px 16px;cursor:pointer;
-  transition:background .2s ease,color .2s ease,border-color .2s ease,transform .2s ease,box-shadow .2s ease;
+  border:1px solid var(--edge);border-radius:8px;
+  padding:7px 12px;cursor:pointer;
+  transition:background .15s ease,color .15s ease,border-color .15s ease;
   position:relative;
 }
 .tabs button:hover{
   background:var(--white);color:#000;border-color:var(--white);
-  transform:translateY(-3px);box-shadow:0 5px 14px rgba(255,255,255,.12);
 }
-.tabs button:active{transform:translateY(0)}
 .tabs button.on{
   background:var(--white);color:#000;border-color:var(--white);
 }
 .tabs button.has-data::after{
-  content:"";position:absolute;top:6px;right:6px;
-  width:7px;height:7px;border-radius:50%;background:#22c55e;
+  content:"";position:absolute;top:5px;right:5px;
+  width:6px;height:6px;border-radius:50%;background:#22c55e;
 }
-.tabs button .hint{
-  display:block;font-size:9px;letter-spacing:.06em;opacity:.55;margin-top:2px;font-weight:600;
+.rename-link{
+  font:inherit;font-size:11px;font-weight:700;letter-spacing:.06em;
+  color:var(--text);background:transparent;border:1px solid var(--edge);
+  border-radius:8px;padding:7px 12px;cursor:pointer;white-space:nowrap;
 }
-.edit-hint{text-align:center;font-size:12px;color:var(--muted);margin:8px 0 0;padding:0 20px}
-.edit-hint b{color:var(--text)}
+.rename-link:hover{background:var(--white);color:#000}
 .main{max-width:1200px;margin:0 auto;padding:14px 20px 100px}
 .trend-wrap{display:flex;flex-direction:column;gap:28px;padding:14px 0 40px}
 .chart-card{background:var(--card);border:1px solid var(--edge);border-radius:20px;padding:18px 18px 22px}
@@ -92,7 +94,7 @@ h2.title{margin:6px 0 0;font-size:clamp(22px,4vw,34px);letter-spacing:.04em}
   font-weight:700;cursor:pointer;background:var(--white);color:#000;margin-left:6px;
 }
 .bar button.ghostb,.bar button#clear,.bar button#export{background:transparent;color:var(--text)}
-.sheet{overflow:auto;border-radius:10px;background:var(--white)}
+.sheet{overflow:auto;border-radius:10px;background:var(--white);flex:1;min-height:200px}
 .sheet table{border-collapse:collapse;border-spacing:0;width:max-content;color:#111}
 .sheet td,.sheet th{border:1px solid #d4d4d4;padding:4px 8px;font-size:12.5px;min-width:90px;height:26px;white-space:nowrap;background:var(--white)}
 .sheet th{background:#cfcfcf;color:#111;text-align:center;position:sticky;top:0}
@@ -119,12 +121,7 @@ body::before{
   <h2 class="title">CSAT &amp; FCR</h2>
 </header>
 
-<div class="note" id="note">Select a tab, open the book, and paste that hour’s survey export at A1 (headers in row 1). Double-click a tab to rename it.</div>
-
-<div class="tabs-wrap">
-  <div class="tabs" id="tabs"></div>
-  <div class="edit-hint">Double-click any tab to rename · Green dot = data loaded · Empty tabs are hidden from the chart</div>
-</div>
+<div class="note" id="note">Open the book to paste survey data for each hour. Tabs with no data stay off the chart.</div>
 
 <div class="main">
   <div class="trend-wrap" id="charts">
@@ -141,15 +138,15 @@ body::before{
   </div>
 </div>
 
-<button class="fab" id="fab" title="Open data sheet for selected hour" aria-label="Open data sheet">&#128214;</button>
+<button class="fab" id="fab" title="Open hourly data" aria-label="Open data sheet">&#128214;</button>
 
-<!-- Data sheet modal -->
+<!-- Data sheet modal (tabs live here) -->
 <div class="modal" id="modal">
   <div class="panel">
     <div class="bar">
       <div>
-        <b id="modalTitle">Hour data</b>
-        <small id="hint">Click A1 and paste the survey export (replaces old data). Headers in row 1.</small>
+        <b id="modalTitle">Hourly data</b>
+        <small id="hint">Select a tab, then paste that hour’s survey export at A1. Headers in row 1.</small>
       </div>
       <div>
         <button id="addRows" class="ghostb">+ Rows</button>
@@ -159,6 +156,12 @@ body::before{
         <button id="close">Done</button>
       </div>
     </div>
+
+    <div class="sheet-tabs-wrap">
+      <div class="tabs" id="tabs"></div>
+      <button type="button" id="renameBtn" class="rename-link">✎ Rename tab</button>
+    </div>
+
     <div class="sheet" id="sheet"></div>
   </div>
 </div>
@@ -210,6 +213,84 @@ function parseTSV(t) {
   return rows;
 }
 
+// Detect date-like lines: 11/20/26 7:54 AM  or  2026-11-20 …
+const isDateLine = s => /^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(s) || /^\d{4}-\d{2}-\d{2}/.test(s);
+// Agent-like: contains a dot (chino.albarracin) or looks like a name token
+const isAgentLine = s => /^[a-z][a-z0-9._-]+$/i.test(s) && (s.includes(".") || s.length > 3);
+// Known FCR answer text
+const isFcrLine = s => FCRN.includes(norm(s));
+
+/**
+ * Smart paste parser.
+ * 1) Normal TSV (tabs) from Excel → use as-is
+ * 2) Single-column / one-field-per-line data (common when tabs are lost)
+ *    → group lines into records: agent … date
+ *    → output rows with columns: Agent | Case | Knowledge | Courtesy | FCR | Comment | Date
+ */
+function parsePaste(text) {
+  const raw = parseTSV(text);
+  // If any row has more than 1 column, treat as proper table
+  if (raw.some(r => r.length > 1)) {
+    // Drop completely empty rows
+    return raw.filter(r => r.some(c => String(c || "").trim()));
+  }
+
+  // Single-column path: group into survey records
+  const lines = raw.map(r => String(r[0] || "").trim()).filter(Boolean);
+  if (!lines.length) return [];
+
+  const records = [];
+  let cur = [];
+  for (const line of lines) {
+    // New record starts on agent-like line (and we already have a previous record)
+    if (cur.length && isAgentLine(line) && isDateLine(cur[cur.length - 1])) {
+      records.push(cur);
+      cur = [line];
+      continue;
+    }
+    cur.push(line);
+    // End of record when we hit a date
+    if (isDateLine(line) && cur.length >= 4) {
+      records.push(cur);
+      cur = [];
+    }
+  }
+  if (cur.length) records.push(cur);
+
+  // Map each record into a consistent column layout with a header
+  const header = ["Agent Name", "Case ID", "Knowledgeable", "Courteous", "FCR", "Comment", "Date"];
+  const out = [header];
+
+  for (const rec of records) {
+    // Heuristic field extraction
+    let agent = "", caseId = "", k = "", c = "", fcr = "", comment = "", date = "";
+    const nums = []; // collect 1-5 scores in order
+
+    for (const cell of rec) {
+      if (isDateLine(cell)) { date = cell; continue; }
+      if (isFcrLine(cell)) { fcr = cell; continue; }
+      if (/^I-\d+/i.test(cell) || cell === "NOT_SET") { caseId = cell; continue; }
+      if (/^[1-5]$/.test(cell)) { nums.push(cell); continue; }
+      if (!agent && isAgentLine(cell)) { agent = cell; continue; }
+      // leftover text → comment (keep the longest / last meaningful)
+      if (cell && cell.toLowerCase() !== "pretuya" && cell.toLowerCase() !== "pass") {
+        comment = cell;
+      } else if (cell && cell.toLowerCase() === "pass" && !comment) {
+        comment = cell;
+      }
+    }
+    // First two 1-5 numbers are Knowledge & Courtesy
+    if (nums[0]) k = nums[0];
+    if (nums[1]) c = nums[1];
+    // If only one score found, use it for both so CSAT still computes
+    if (k && !c) c = k;
+    if (c && !k) k = c;
+
+    out.push([agent, caseId, k, c, fcr, comment, date]);
+  }
+  return out;
+}
+
 /* ================= state ================= */
 const HOURS = 9;
 let hours = Array.from({ length: HOURS }, (_, i) => ({
@@ -256,23 +337,43 @@ function metricsFor(rows) {
   if (!rows || rows.length < 2) return { csat: null, fcr: null, n: 0, fcrN: 0 };
   const C = csCols(rows);
   let sum = 0, n = 0, fcrOk = 0, fcrN = 0;
+
   for (let r = 1; r < rows.length; r++) {
     const row = rows[r] || [];
     if (!row.some(x => String(x || "").trim())) continue;
-    const sc = i => {
-      const v = Math.round(parseFloat(row[i]));
-      return v >= 1 && v <= 5 ? v : 0;
-    };
-    const k = C.k >= 0 ? sc(C.k) : 0;
-    const c = C.c >= 0 ? sc(C.c) : 0;
+
+    let k = 0, c = 0, fcrIdx = -1;
+
+    if (C.k >= 0 || C.c >= 0 || C.fcr >= 0) {
+      // Header-based path
+      const sc = i => {
+        if (i < 0) return 0;
+        const v = Math.round(parseFloat(row[i]));
+        return v >= 1 && v <= 5 ? v : 0;
+      };
+      k = sc(C.k);
+      c = sc(C.c);
+      if (C.fcr >= 0) fcrIdx = FCRN.indexOf(norm(row[C.fcr]));
+    } else {
+      // Fallback: scan the row for 1-5 numbers and FCR text
+      const nums = [];
+      for (const cell of row) {
+        const s = String(cell || "").trim();
+        if (/^[1-5]$/.test(s)) nums.push(+s);
+        const fi = FCRN.indexOf(norm(s));
+        if (fi >= 0) fcrIdx = fi;
+      }
+      if (nums[0]) k = nums[0];
+      if (nums[1]) c = nums[1];
+      if (k && !c) c = k;
+      if (c && !k) k = c;
+    }
+
     const a = k && c ? (k + c) / 2 : (k || c || 0);
     if (a) { sum += a; n++; }
-    if (C.fcr >= 0) {
-      const fi = FCRN.indexOf(norm(row[C.fcr]));
-      if (fi >= 0) {
-        fcrN++;
-        if (fi === 0) fcrOk++;
-      }
+    if (fcrIdx >= 0) {
+      fcrN++;
+      if (fcrIdx === 0) fcrOk++;
     }
   }
   return {
@@ -309,7 +410,8 @@ function drawLineChart(canvas, points, opts) {
     return;
   }
 
-  const pad = { t: 28, r: 20, b: 42, l: 48 };
+  // Extra top padding so two-line labels above dots never get clipped
+  const pad = { t: 56, r: 20, b: 42, l: 48 };
   const chartW = w - pad.l - pad.r, chartH = h - pad.t - pad.b;
   const vals = points.map(p => p.v).filter(v => v != null);
   let minY = opts.minY != null ? opts.minY : Math.min(...vals);
@@ -358,13 +460,15 @@ function drawLineChart(canvas, points, opts) {
     });
     ctx.stroke();
 
-    // points
+    // points + always-visible labels (for screenshots)
     hits.length = 0;
     points.forEach((p, i) => {
       if (p.v == null) return;
       const px = xAt(i), py = yAt(p.v);
       hits.push({ i, px, py, p });
       const r = activeIdx === i ? 7 : 4.5;
+
+      // dot
       ctx.beginPath();
       ctx.arc(px, py, r, 0, Math.PI * 2);
       ctx.fillStyle = opts.color || "#22c55e";
@@ -379,6 +483,56 @@ function drawLineChart(canvas, points, opts) {
         ctx.lineWidth = 2;
         ctx.stroke();
       }
+
+      // Two-line label above the dot:
+      //   line 1 — time (tab name)
+      //   line 2 — score + survey count
+      // Box color: soft red if below threshold, soft green if ok
+      const line1 = String(p.label || "");
+      const valTxt = opts.isPct ? p.v.toFixed(1) + "%" : p.v.toFixed(2);
+      const line2 = p.n != null ? valTxt + " · " + p.n + " Survey" : valTxt;
+      const bad = opts.badBelow != null && p.v < opts.badBelow;
+
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.font = "bold 11px system-ui";
+      const w1 = ctx.measureText(line1).width;
+      ctx.font = "bold 12px system-ui";
+      const w2 = ctx.measureText(line2).width;
+      const tw = Math.max(w1, w2);
+      const padX = 7, padY = 5, lineGap = 3, lineH = 13;
+      const bw = tw + padX * 2;
+      const bh = lineH * 2 + lineGap + padY * 2;
+      // center on the dot, then clamp so the full box stays inside the canvas
+      let bx = px - bw / 2;
+      if (bx < 4) bx = 4;
+      if (bx + bw > w - 4) bx = w - 4 - bw;
+      // sit above the dot with a small gap; keep inside canvas
+      let by = py - r - 6 - bh;
+      if (by < 2) by = 2;
+      const br = 6;
+      const textX = bx + bw / 2; // center text in the (possibly shifted) box
+
+      // soft green (ok) or soft red (below threshold)
+      ctx.fillStyle = bad ? "rgba(220,120,120,.92)" : "rgba(140,200,150,.92)";
+      ctx.strokeStyle = bad ? "rgba(140,50,50,.35)" : "rgba(40,100,55,.35)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(bx + br, by);
+      ctx.arcTo(bx + bw, by, bx + bw, by + bh, br);
+      ctx.arcTo(bx + bw, by + bh, bx, by + bh, br);
+      ctx.arcTo(bx, by + bh, bx, by, br);
+      ctx.arcTo(bx, by, bx + bw, by, br);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // text — dark for contrast on both soft fills
+      ctx.fillStyle = "#111";
+      ctx.font = "bold 11px system-ui";
+      ctx.fillText(line1, textX, by + padY);
+      ctx.font = "bold 12px system-ui";
+      ctx.fillText(line2, textX, by + padY + lineH + lineGap);
     });
 
     // Y labels
@@ -414,7 +568,7 @@ function drawLineChart(canvas, points, opts) {
       const h = hits.find(x => x.i === found);
       paint(found);
       const valTxt = opts.isPct ? h.p.v.toFixed(1) + "%" : h.p.v.toFixed(2);
-      const nTxt = h.p.n != null ? ` · ${h.p.n} survey${h.p.n === 1 ? "" : "s"}` : "";
+      const nTxt = h.p.n != null ? ` · ${h.p.n} Survey` : "";
       tip.innerHTML = `${esc(h.p.label)}<br>${valTxt}${nTxt}`;
       tip.classList.add("on");
       let left = h.px + 12, top = h.py - 40;
@@ -443,13 +597,11 @@ function buildTabs() {
   const el = $id("tabs");
   el.innerHTML = hours.map((h, i) => {
     const data = hasData(h);
-    return `<button data-i="${i}" class="${i === sel ? "on" : ""}${data ? " has-data" : ""}" title="Click to select · Double-click to rename">${esc(h.name)}</button>`;
+    return `<button data-i="${i}" class="${i === sel ? "on" : ""}${data ? " has-data" : ""}" title="Click to select this hour">${esc(h.name)}</button>`;
   }).join("");
 }
 
 function render() {
-  buildTabs();
-
   // only hours with data appear on the chart, in order
   const points = [];
   hours.forEach(h => {
@@ -466,8 +618,8 @@ function render() {
 
   const withData = points.length;
   $id("note").textContent = withData
-    ? `${withData} hour${withData === 1 ? "" : "s"} with data · Select a tab and open the book to paste or edit`
-    : "Select a tab, open the book, and paste that hour’s survey export at A1 (headers in row 1). Double-click a tab to rename it.";
+    ? `${withData} hour${withData === 1 ? "" : "s"} with data · Open the book to add or edit`
+    : "Open the book to paste survey data for each hour. Tabs with no data stay off the chart.";
 
   const csatPts = points.map(p => ({ label: p.label, v: p.csat, n: p.n }));
   const fcrPts  = points.map(p => ({ label: p.label, v: p.fcr,  n: p.n }));
@@ -475,32 +627,45 @@ function render() {
   requestAnimationFrame(() => {
     const c1 = $id("csatChart"), c2 = $id("fcrChart");
     if (c1) drawLineChart(c1, csatPts, {
-      minY: 1, maxY: 5, target: 4.9, color: "#22c55e",
-      emptyMsg: "No hourly data yet — paste surveys into the tabs"
+      minY: 1, maxY: 5, target: 4.9, color: "#60a5fa",
+      badBelow: 4.92,
+      emptyMsg: "No hourly data yet — open the book and paste surveys"
     });
     if (c2) drawLineChart(c2, fcrPts, {
       minY: 0, maxY: 100, isPct: true, color: "#60a5fa",
-      emptyMsg: "No hourly data yet — paste surveys into the tabs"
+      badBelow: 88,
+      emptyMsg: "No hourly data yet — open the book and paste surveys"
     });
   });
 }
 
-/* ---------- tabs interaction ---------- */
-$id("tabs").addEventListener("click", e => {
-  const b = e.target.closest("button[data-i]");
-  if (!b) return;
-  sel = +b.dataset.i;
-  buildTabs();
-});
-
-$id("tabs").addEventListener("dblclick", e => {
-  const b = e.target.closest("button[data-i]");
-  if (!b) return;
-  renameIdx = +b.dataset.i;
+/* ---------- tabs interaction (inside the book) ---------- */
+function openRename(i) {
+  renameIdx = i;
   $id("renameIn").value = hours[renameIdx].name;
   $id("renameModal").classList.add("on");
   setTimeout(() => { $id("renameIn").focus(); $id("renameIn").select(); }, 30);
+}
+
+$id("tabs").addEventListener("click", e => {
+  const b = e.target.closest("button[data-i]");
+  if (!b) return;
+  const i = +b.dataset.i;
+  if (i === sel) return;
+  sel = i;
+  buildTabs();
+  grid(); // switch the spreadsheet to the newly selected hour
 });
+
+// Double-click a tab to rename
+$id("tabs").addEventListener("dblclick", e => {
+  const b = e.target.closest("button[data-i]");
+  if (!b) return;
+  openRename(+b.dataset.i);
+});
+
+// Explicit Rename button
+$id("renameBtn").onclick = () => openRename(sel);
 
 function doRename() {
   if (renameIdx < 0) return;
@@ -508,7 +673,8 @@ function doRename() {
   if (v) {
     hours[renameIdx].name = v;
     save();
-    render();
+    buildTabs();
+    $id("modalTitle").textContent = hours[sel].name + " data";
   }
   $id("renameModal").classList.remove("on");
   renameIdx = -1;
@@ -551,16 +717,17 @@ function grid() {
   }
   $id("sheet").innerHTML = h + "</tbody></table>";
   $id("modalTitle").textContent = hours[sel].name + " data";
-  $id("hint").textContent = "Click A1 and paste the survey export (replaces old data). Headers in row 1. Exports as hourly.json.";
+  $id("hint").textContent = "Select a tab, click A1, then paste. Works with Excel (tab-separated) or plain one-field-per-line survey dumps.";
 }
 
 function openSheet() {
+  buildTabs();
   grid();
   $id("modal").classList.add("on");
 }
 function closeSheet() {
   $id("modal").classList.remove("on");
-  render();
+  render(); // refresh charts with any new data / renamed labels
 }
 
 $id("fab").onclick = openSheet;
@@ -582,15 +749,18 @@ sheet.addEventListener("paste", e => {
   const t = e.target.closest("td[data-r]");
   if (!t) return;
   e.preventDefault();
-  const rows = parseTSV((e.clipboardData || window.clipboardData).getData("text"));
+  const text = (e.clipboardData || window.clipboardData).getData("text");
+  const rows = parsePaste(text);
   const arr = hours[sel].rows;
   const r0 = +t.dataset.r, c0 = +t.dataset.c;
+  // Pasting at A1 (or anywhere on first row) replaces all data for this hour
   if (r0 === 0 && c0 === 0) arr.length = 0;
   rows.forEach((cells, i) => {
     while (arr.length <= r0 + i) arr.push([]);
     cells.forEach((v, j) => { arr[r0 + i][c0 + j] = String(v).trim(); });
   });
   save();
+  buildTabs(); // update green dots
   grid();
 });
 
@@ -608,6 +778,7 @@ $id("clear").onclick = () => {
   if (!confirm("Clear data for \"" + hours[sel].name + "\"?")) return;
   hours[sel].rows = [];
   save();
+  buildTabs(); // update green dots
   grid();
 };
 
