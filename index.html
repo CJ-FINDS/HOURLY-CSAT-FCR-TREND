@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hourly CSAT &amp; FCR</title>
+<style>
+:root{
+  --bg:#000;--card:#0b0b0b;--row:#1a1a1a;--text:#e6e6e6;--white:#dedede;
+  --muted:#a3a3a3;--edge:rgba(255,255,255,.6);--soft:rgba(255,255,255,.22);
+  --red:#9b2c2c;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box}
+html{height:100%}
+body{
+  margin:0;min-height:100%;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color:var(--text);background:var(--bg);
+}
+header{padding:28px 20px 8px;text-align:center;position:relative}
+h1{margin:0;font-size:13px;letter-spacing:.3em;color:var(--muted)}
+h2.title{margin:6px 0 0;font-size:clamp(22px,4vw,34px);letter-spacing:.04em}
+.note{max-width:1200px;margin:10px auto 0;padding:0 20px;text-align:center;font-size:13px;color:var(--muted)}
+.tabs-wrap{max-width:1200px;margin:18px auto 0;padding:0 20px}
+.tabs{
+  display:flex;gap:8px;justify-content:center;flex-wrap:wrap;
+}
+.tabs button{
+  font:inherit;font-weight:800;font-size:12px;letter-spacing:.12em;
+  color:var(--text);background:transparent;
+  border:1px solid var(--edge);border-radius:10px;
+  padding:9px 16px;cursor:pointer;
+  transition:background .2s ease,color .2s ease,border-color .2s ease,transform .2s ease,box-shadow .2s ease;
+  position:relative;
+}
+.tabs button:hover{
+  background:var(--white);color:#000;border-color:var(--white);
+  transform:translateY(-3px);box-shadow:0 5px 14px rgba(255,255,255,.12);
+}
+.tabs button:active{transform:translateY(0)}
+.tabs button.on{
+  background:var(--white);color:#000;border-color:var(--white);
+}
+.tabs button.has-data::after{
+  content:"";position:absolute;top:6px;right:6px;
+  width:7px;height:7px;border-radius:50%;background:#22c55e;
+}
+.tabs button .hint{
+  display:block;font-size:9px;letter-spacing:.06em;opacity:.55;margin-top:2px;font-weight:600;
+}
+.edit-hint{text-align:center;font-size:12px;color:var(--muted);margin:8px 0 0;padding:0 20px}
+.edit-hint b{color:var(--text)}
+.main{max-width:1200px;margin:0 auto;padding:14px 20px 100px}
+.trend-wrap{display:flex;flex-direction:column;gap:28px;padding:14px 0 40px}
+.chart-card{background:var(--card);border:1px solid var(--edge);border-radius:20px;padding:18px 18px 22px}
+.chart-card h3{margin:0 0 4px;font-size:15px;letter-spacing:.15em;color:var(--muted)}
+.chart-sub{font-size:12px;color:var(--muted);margin-bottom:12px}
+.chart-box{position:relative;width:100%;height:380px}
+.chart-box canvas{width:100%;height:100%;display:block;cursor:crosshair}
+.chart-empty{color:var(--muted);font-size:14px;padding:40px 0;text-align:center}
+.chart-tip{
+  position:absolute;pointer-events:none;background:#111;border:1px solid var(--edge);
+  color:var(--text);font-size:13px;font-weight:700;padding:8px 12px;border-radius:10px;
+  white-space:nowrap;z-index:5;opacity:0;transition:opacity .12s;
+  box-shadow:0 6px 20px rgba(0,0,0,.45);
+}
+.chart-tip.on{opacity:1}
+.fab{
+  position:fixed;
+  right:max(20px,env(safe-area-inset-right,0px));
+  bottom:calc(20px + env(safe-area-inset-bottom,0px));
+  width:58px;height:58px;border-radius:50%;
+  border:1px solid #000;background:var(--white);color:#000;
+  font-size:26px;cursor:pointer;
+  box-shadow:0 8px 28px rgba(255,255,255,.18);z-index:15;
+}
+.fab:hover{transform:scale(1.06)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;align-items:center;justify-content:center;padding:16px;z-index:20}
+.modal.on{display:flex}
+.panel{
+  background:var(--card);border:1px solid var(--edge);border-radius:20px;
+  width:min(1100px,100%);max-height:88vh;display:flex;flex-direction:column;
+  padding:16px;color:var(--text);
+}
+.bar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap}
+.bar b{font-size:15px}.bar small{opacity:.75}
+.bar button{
+  border:1px solid var(--edge);border-radius:10px;padding:8px 14px;
+  font-weight:700;cursor:pointer;background:var(--white);color:#000;margin-left:6px;
+}
+.bar button.ghostb,.bar button#clear,.bar button#export{background:transparent;color:var(--text)}
+.sheet{overflow:auto;border-radius:10px;background:var(--white)}
+.sheet table{border-collapse:collapse;border-spacing:0;width:max-content;color:#111}
+.sheet td,.sheet th{border:1px solid #d4d4d4;padding:4px 8px;font-size:12.5px;min-width:90px;height:26px;white-space:nowrap;background:var(--white)}
+.sheet th{background:#cfcfcf;color:#111;text-align:center;position:sticky;top:0}
+.sheet td.n{background:#cfcfcf;color:#111;min-width:34px;text-align:center;position:sticky;left:0}
+.sheet tr:first-of-type td:not(.n){font-weight:700;background:#d4d4d4}
+.sheet td:focus{outline:2px solid #000;outline-offset:-2px}
+/* rename modal */
+#renameModal .panel{width:min(360px,100%)}
+#renameIn{
+  width:100%;font:inherit;font-size:16px;color:var(--text);background:#000;
+  border:1px solid var(--edge);border-radius:10px;padding:11px 12px;margin:12px 0 6px;
+}
+.rename-btns{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+body::before{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:url("IMAGE/bg.png") center/min(75vmin,640px) no-repeat;
+  opacity:.15;
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>HOURLY STAT</h1>
+  <h2 class="title">CSAT &amp; FCR</h2>
+</header>
+
+<div class="note" id="note">Select a tab, open the book, and paste that hour’s survey export at A1 (headers in row 1). Double-click a tab to rename it.</div>
+
+<div class="tabs-wrap">
+  <div class="tabs" id="tabs"></div>
+  <div class="edit-hint">Double-click any tab to rename · Green dot = data loaded · Empty tabs are hidden from the chart</div>
+</div>
+
+<div class="main">
+  <div class="trend-wrap" id="charts">
+    <div class="chart-card">
+      <h3>HOURLY CSAT</h3>
+      <div class="chart-sub">Average of Knowledge + Courtesy · Target 4.9 · Hover a point for the exact score</div>
+      <div class="chart-box"><canvas id="csatChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>HOURLY FCR %</h3>
+      <div class="chart-sub">% resolved on first interaction · Hover a point for the exact rate</div>
+      <div class="chart-box"><canvas id="fcrChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<button class="fab" id="fab" title="Open data sheet for selected hour" aria-label="Open data sheet">&#128214;</button>
+
+<!-- Data sheet modal -->
+<div class="modal" id="modal">
+  <div class="panel">
+    <div class="bar">
+      <div>
+        <b id="modalTitle">Hour data</b>
+        <small id="hint">Click A1 and paste the survey export (replaces old data). Headers in row 1.</small>
+      </div>
+      <div>
+        <button id="addRows" class="ghostb">+ Rows</button>
+        <button id="addCols" class="ghostb">+ Cols</button>
+        <button id="export" title="Download all hours as hourly.json">Export all</button>
+        <button id="clear">Clear</button>
+        <button id="close">Done</button>
+      </div>
+    </div>
+    <div class="sheet" id="sheet"></div>
+  </div>
+</div>
+
+<!-- Rename modal -->
+<div class="modal" id="renameModal">
+  <div class="panel">
+    <b>Rename tab</b>
+    <small style="opacity:.75;margin-top:4px">This name appears on the chart x-axis.</small>
+    <input id="renameIn" type="text" maxlength="24" placeholder="e.g. 10pm" autocomplete="off">
+    <div class="rename-btns">
+      <button class="ghostb" id="renameCancel">Cancel</button>
+      <button id="renameOk">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= helpers ================= */
+const $id = id => document.getElementById(id);
+const norm = s => String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9]/g, "");
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+const FCR_LABELS = [
+  "Yes. resolved in one interaction",
+  "Yes. but it took more than one interaction.",
+  "No. this is my first interaction and it is not resolved.",
+  "No. I have contacted you more than once and it is still not resolved."
+];
+const FCRN = FCR_LABELS.map(norm);
+
+function parseTSV(t) {
+  const rows = [];
+  let row = [], f = "", q = false;
+  t = t.replace(/\r/g, "");
+  for (let i = 0; i < t.length; i++) {
+    const ch = t[i];
+    if (q) {
+      if (ch === '"') {
+        if (t[i + 1] === '"') { f += '"'; i++; }
+        else q = false;
+      } else f += ch;
+    } else if (ch === '"' && f === "") q = true;
+    else if (ch === "\t") { row.push(f); f = ""; }
+    else if (ch === "\n") { row.push(f); rows.push(row); row = []; f = ""; }
+    else f += ch;
+  }
+  if (f !== "" || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+
+/* ================= state ================= */
+const HOURS = 9;
+let hours = Array.from({ length: HOURS }, (_, i) => ({
+  name: (i + 1) + "HR",
+  rows: []
+}));
+let sel = 0;          // selected tab index
+let xRows = 30, xCols = 40;
+let renameIdx = -1;
+
+try {
+  const d = JSON.parse(localStorage.getItem("ps_hourly") || "null");
+  if (d && Array.isArray(d.hours) && d.hours.length === HOURS) {
+    hours = d.hours.map((h, i) => ({
+      name: (h && h.name) ? String(h.name).slice(0, 24) : ((i + 1) + "HR"),
+      rows: Array.isArray(h.rows) ? h.rows : []
+    }));
+  }
+} catch (e) {}
+
+function save() {
+  try {
+    localStorage.setItem("ps_hourly", JSON.stringify({ updated: Date.now(), hours }));
+  } catch (e) {}
+}
+
+/* ================= column detection (same logic as original) ================= */
+function csCols(rows) {
+  const h = (rows[0] || []).map(norm);
+  const f = (ex, part) => {
+    let i = -1;
+    for (const k of ex) { i = h.indexOf(k); if (i >= 0) return i; }
+    if (part) i = h.findIndex(x => x.includes(part));
+    return i;
+  };
+  return {
+    k: f(["q1knowledge", "knowledgeablerating", "knowledgeable", "q1knowledge"], "knowledg"),
+    c: f(["q2courtesy", "courteousrating", "courteous", "q2courtesy"], "courte"),
+    fcr: f(["q3fcr", "fcrvalue", "fcr", "q3fcr"], "fcr")
+  };
+}
+
+function metricsFor(rows) {
+  if (!rows || rows.length < 2) return { csat: null, fcr: null, n: 0, fcrN: 0 };
+  const C = csCols(rows);
+  let sum = 0, n = 0, fcrOk = 0, fcrN = 0;
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r] || [];
+    if (!row.some(x => String(x || "").trim())) continue;
+    const sc = i => {
+      const v = Math.round(parseFloat(row[i]));
+      return v >= 1 && v <= 5 ? v : 0;
+    };
+    const k = C.k >= 0 ? sc(C.k) : 0;
+    const c = C.c >= 0 ? sc(C.c) : 0;
+    const a = k && c ? (k + c) / 2 : (k || c || 0);
+    if (a) { sum += a; n++; }
+    if (C.fcr >= 0) {
+      const fi = FCRN.indexOf(norm(row[C.fcr]));
+      if (fi >= 0) {
+        fcrN++;
+        if (fi === 0) fcrOk++;
+      }
+    }
+  }
+  return {
+    csat: n ? +(sum / n).toFixed(2) : null,
+    fcr: fcrN ? +(fcrOk / fcrN * 100).toFixed(1) : null,
+    n,
+    fcrN
+  };
+}
+
+/* ================= chart (copied & adapted from original) ================= */
+function drawLineChart(canvas, points, opts) {
+  const parent = canvas.parentElement;
+  const oldTip = parent.querySelector(".chart-tip");
+  if (oldTip) oldTip.remove();
+
+  const tip = document.createElement("div");
+  tip.className = "chart-tip";
+  parent.appendChild(tip);
+
+  const ctx = canvas.getContext("2d");
+  const dpr = devicePixelRatio || 1;
+  const w = canvas.offsetWidth, h = canvas.offsetHeight;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+
+  if (!points.length) {
+    ctx.fillStyle = "#a3a3a3";
+    ctx.font = "14px system-ui";
+    ctx.textAlign = "center";
+    ctx.fillText(opts.emptyMsg || "No data yet", w / 2, h / 2);
+    return;
+  }
+
+  const pad = { t: 28, r: 20, b: 42, l: 48 };
+  const chartW = w - pad.l - pad.r, chartH = h - pad.t - pad.b;
+  const vals = points.map(p => p.v).filter(v => v != null);
+  let minY = opts.minY != null ? opts.minY : Math.min(...vals);
+  let maxY = opts.maxY != null ? opts.maxY : Math.max(...vals);
+  if (minY === maxY) { minY -= 1; maxY += 1; }
+
+  const xAt = i => pad.l + (i / (points.length - 1 || 1)) * chartW;
+  const yAt = v => pad.t + chartH - ((v - minY) / (maxY - minY)) * chartH;
+  const hits = [];
+
+  function paint(activeIdx) {
+    ctx.clearRect(0, 0, w, h);
+
+    // grid
+    ctx.strokeStyle = "rgba(255,255,255,.08)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const gy = pad.t + (i / 4) * chartH;
+      ctx.beginPath(); ctx.moveTo(pad.l, gy); ctx.lineTo(pad.l + chartW, gy); ctx.stroke();
+    }
+
+    // target line
+    if (opts.target != null) {
+      const ty = yAt(opts.target);
+      ctx.strokeStyle = "rgba(255,255,255,.28)";
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath(); ctx.moveTo(pad.l, ty); ctx.lineTo(pad.l + chartW, ty); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "rgba(255,255,255,.5)";
+      ctx.font = "11px system-ui";
+      ctx.textAlign = "left";
+      ctx.fillText("target " + opts.target, pad.l + 6, ty - 6);
+    }
+
+    // line
+    ctx.strokeStyle = opts.color || "#22c55e";
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    let started = false;
+    points.forEach((p, i) => {
+      if (p.v == null) return;
+      const px = xAt(i), py = yAt(p.v);
+      if (!started) { ctx.moveTo(px, py); started = true; }
+      else ctx.lineTo(px, py);
+    });
+    ctx.stroke();
+
+    // points
+    hits.length = 0;
+    points.forEach((p, i) => {
+      if (p.v == null) return;
+      const px = xAt(i), py = yAt(p.v);
+      hits.push({ i, px, py, p });
+      const r = activeIdx === i ? 7 : 4.5;
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, Math.PI * 2);
+      ctx.fillStyle = opts.color || "#22c55e";
+      ctx.fill();
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      if (activeIdx === i) {
+        ctx.beginPath();
+        ctx.arc(px, py, r + 4, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(255,255,255,.55)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    });
+
+    // Y labels
+    ctx.fillStyle = "#a3a3a3";
+    ctx.font = "11px system-ui";
+    ctx.textAlign = "right";
+    for (let i = 0; i <= 4; i++) {
+      const val = minY + (maxY - minY) * (1 - i / 4);
+      ctx.fillText(opts.isPct ? val.toFixed(0) + "%" : val.toFixed(1), pad.l - 8, pad.t + (i / 4) * chartH + 4);
+    }
+
+    // X labels (use the tab names)
+    ctx.textAlign = "center";
+    const step = Math.max(1, Math.ceil(points.length / 8));
+    points.forEach((p, i) => {
+      if (i % step === 0 || i === points.length - 1) {
+        ctx.fillText(p.label, xAt(i), h - 12);
+      }
+    });
+  }
+
+  paint(-1);
+
+  canvas.onmousemove = e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    let found = -1, best = 18;
+    hits.forEach(h => {
+      const d = Math.hypot(h.px - mx, h.py - my);
+      if (d < best) { best = d; found = h.i; }
+    });
+    if (found >= 0) {
+      const h = hits.find(x => x.i === found);
+      paint(found);
+      const valTxt = opts.isPct ? h.p.v.toFixed(1) + "%" : h.p.v.toFixed(2);
+      const nTxt = h.p.n != null ? ` · ${h.p.n} survey${h.p.n === 1 ? "" : "s"}` : "";
+      tip.innerHTML = `${esc(h.p.label)}<br>${valTxt}${nTxt}`;
+      tip.classList.add("on");
+      let left = h.px + 12, top = h.py - 40;
+      if (left + 120 > w) left = h.px - 130;
+      if (top < 4) top = h.py + 16;
+      tip.style.left = left + "px";
+      tip.style.top = top + "px";
+    } else {
+      paint(-1);
+      tip.classList.remove("on");
+    }
+  };
+  canvas.onmouseleave = () => {
+    paint(-1);
+    tip.classList.remove("on");
+  };
+}
+
+/* ================= UI ================= */
+function hasData(h) {
+  const m = metricsFor(h.rows);
+  return m.n > 0;
+}
+
+function buildTabs() {
+  const el = $id("tabs");
+  el.innerHTML = hours.map((h, i) => {
+    const data = hasData(h);
+    return `<button data-i="${i}" class="${i === sel ? "on" : ""}${data ? " has-data" : ""}" title="Click to select · Double-click to rename">${esc(h.name)}</button>`;
+  }).join("");
+}
+
+function render() {
+  buildTabs();
+
+  // only hours with data appear on the chart, in order
+  const points = [];
+  hours.forEach(h => {
+    const m = metricsFor(h.rows);
+    if (m.n > 0) {
+      points.push({
+        label: h.name,
+        csat: m.csat,
+        fcr: m.fcr,
+        n: m.n
+      });
+    }
+  });
+
+  const withData = points.length;
+  $id("note").textContent = withData
+    ? `${withData} hour${withData === 1 ? "" : "s"} with data · Select a tab and open the book to paste or edit`
+    : "Select a tab, open the book, and paste that hour’s survey export at A1 (headers in row 1). Double-click a tab to rename it.";
+
+  const csatPts = points.map(p => ({ label: p.label, v: p.csat, n: p.n }));
+  const fcrPts  = points.map(p => ({ label: p.label, v: p.fcr,  n: p.n }));
+
+  requestAnimationFrame(() => {
+    const c1 = $id("csatChart"), c2 = $id("fcrChart");
+    if (c1) drawLineChart(c1, csatPts, {
+      minY: 1, maxY: 5, target: 4.9, color: "#22c55e",
+      emptyMsg: "No hourly data yet — paste surveys into the tabs"
+    });
+    if (c2) drawLineChart(c2, fcrPts, {
+      minY: 0, maxY: 100, isPct: true, color: "#60a5fa",
+      emptyMsg: "No hourly data yet — paste surveys into the tabs"
+    });
+  });
+}
+
+/* ---------- tabs interaction ---------- */
+$id("tabs").addEventListener("click", e => {
+  const b = e.target.closest("button[data-i]");
+  if (!b) return;
+  sel = +b.dataset.i;
+  buildTabs();
+});
+
+$id("tabs").addEventListener("dblclick", e => {
+  const b = e.target.closest("button[data-i]");
+  if (!b) return;
+  renameIdx = +b.dataset.i;
+  $id("renameIn").value = hours[renameIdx].name;
+  $id("renameModal").classList.add("on");
+  setTimeout(() => { $id("renameIn").focus(); $id("renameIn").select(); }, 30);
+});
+
+function doRename() {
+  if (renameIdx < 0) return;
+  const v = $id("renameIn").value.trim().slice(0, 24);
+  if (v) {
+    hours[renameIdx].name = v;
+    save();
+    render();
+  }
+  $id("renameModal").classList.remove("on");
+  renameIdx = -1;
+}
+$id("renameOk").onclick = doRename;
+$id("renameCancel").onclick = () => { $id("renameModal").classList.remove("on"); renameIdx = -1; };
+$id("renameIn").addEventListener("keydown", e => {
+  if (e.key === "Enter") doRename();
+  if (e.key === "Escape") $id("renameCancel").click();
+});
+$id("renameModal").addEventListener("click", e => {
+  if (e.target === $id("renameModal")) $id("renameCancel").click();
+});
+
+/* ---------- data sheet ---------- */
+const colName = c => {
+  let s = ""; c++;
+  while (c > 0) {
+    const m = (c - 1) % 26;
+    s = String.fromCharCode(65 + m) + s;
+    c = Math.floor((c - 1) / 26);
+  }
+  return s;
+};
+
+function grid() {
+  const arr = hours[sel].rows;
+  const R = Math.min(arr.length + xRows, 2000);
+  const C = Math.max(xCols, ...arr.slice(0, 2000).map(r => (r || []).length + 1), 1);
+  let h = "<table><thead><tr><th></th>";
+  for (let k = 0; k < C; k++) h += `<th>${colName(k)}</th>`;
+  h += "</tr></thead><tbody>";
+  for (let r = 0; r < R; r++) {
+    h += `<tr><td class="n">${r + 1}</td>`;
+    for (let k = 0; k < C; k++) {
+      const v = (arr[r] && arr[r][k]) || "";
+      h += `<td contenteditable="true" data-r="${r}" data-c="${k}">${esc(v)}</td>`;
+    }
+    h += "</tr>";
+  }
+  $id("sheet").innerHTML = h + "</tbody></table>";
+  $id("modalTitle").textContent = hours[sel].name + " data";
+  $id("hint").textContent = "Click A1 and paste the survey export (replaces old data). Headers in row 1. Exports as hourly.json.";
+}
+
+function openSheet() {
+  grid();
+  $id("modal").classList.add("on");
+}
+function closeSheet() {
+  $id("modal").classList.remove("on");
+  render();
+}
+
+$id("fab").onclick = openSheet;
+$id("close").onclick = closeSheet;
+$id("modal").addEventListener("click", e => { if (e.target === $id("modal")) closeSheet(); });
+
+const sheet = $id("sheet");
+sheet.addEventListener("input", e => {
+  const t = e.target;
+  if (!t.dataset || t.dataset.r === undefined) return;
+  const r = +t.dataset.r, c = +t.dataset.c;
+  const arr = hours[sel].rows;
+  while (arr.length <= r) arr.push([]);
+  arr[r][c] = t.textContent;
+  save();
+});
+
+sheet.addEventListener("paste", e => {
+  const t = e.target.closest("td[data-r]");
+  if (!t) return;
+  e.preventDefault();
+  const rows = parseTSV((e.clipboardData || window.clipboardData).getData("text"));
+  const arr = hours[sel].rows;
+  const r0 = +t.dataset.r, c0 = +t.dataset.c;
+  if (r0 === 0 && c0 === 0) arr.length = 0;
+  rows.forEach((cells, i) => {
+    while (arr.length <= r0 + i) arr.push([]);
+    cells.forEach((v, j) => { arr[r0 + i][c0 + j] = String(v).trim(); });
+  });
+  save();
+  grid();
+});
+
+const grow = (r, c) => {
+  const el = sheet;
+  const t = el.scrollTop, l = el.scrollLeft;
+  xRows += r; xCols += c;
+  grid();
+  el.scrollTop = t; el.scrollLeft = l;
+};
+$id("addRows").onclick = () => grow(25, 0);
+$id("addCols").onclick = () => grow(0, 10);
+
+$id("clear").onclick = () => {
+  if (!confirm("Clear data for \"" + hours[sel].name + "\"?")) return;
+  hours[sel].rows = [];
+  save();
+  grid();
+};
+
+$id("export").onclick = () => {
+  const out = {
+    updated: Date.now(),
+    hours: hours.map(h => ({
+      name: h.name,
+      rows: (h.rows || []).filter(w => w && w.some(x => String(x == null ? "" : x).trim()))
+                         .map(w => Array.from(w, x => x == null ? "" : String(x)))
+    }))
+  };
+  const blob = new Blob([JSON.stringify(out)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "hourly.json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  alert("hourly.json downloaded.\n\nUpload it next to this HTML file if you want to publish the data.");
+};
+
+/* ---------- optional published data ---------- */
+function loadPublished() {
+  if (location.protocol === "file:") return;
+  fetch("hourly.json?v=" + Date.now(), { cache: "no-store" })
+    .then(r => r.ok ? r.json() : null)
+    .then(j => {
+      if (!j || !Array.isArray(j.hours) || j.hours.length !== HOURS) return;
+      const localTs = +(JSON.parse(localStorage.getItem("ps_hourly") || "{}").updated || 0);
+      if ((+j.updated || 0) >= localTs) {
+        hours = j.hours.map((h, i) => ({
+          name: (h && h.name) ? String(h.name).slice(0, 24) : ((i + 1) + "HR"),
+          rows: Array.isArray(h.rows) ? h.rows : []
+        }));
+        save();
+        render();
+      }
+    })
+    .catch(() => {});
+}
+
+/* ---------- start ---------- */
+render();
+loadPublished();
+
+// redraw charts on resize
+let resizeTimer;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(render, 120);
+});
+</script>
+</body>
+</html>
