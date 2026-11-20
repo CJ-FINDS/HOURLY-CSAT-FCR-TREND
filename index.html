@@ -489,7 +489,7 @@ function drawLineChart(canvas, points, opts) {
       //   line 2 — score + survey count
       // Box color: soft red if below threshold, soft green if ok
       const line1 = String(p.label || "");
-      const valTxt = opts.isPct ? p.v.toFixed(1) + "%" : p.v.toFixed(2);
+      const valTxt = opts.isPct ? p.v.toFixed(2) + "%" : p.v.toFixed(2);
       const line2 = p.n != null ? valTxt + " · " + p.n + " Survey" : valTxt;
       const bad = opts.badBelow != null && p.v < opts.badBelow;
 
