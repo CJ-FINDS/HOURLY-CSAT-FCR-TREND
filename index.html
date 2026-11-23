@@ -58,12 +58,12 @@ h2.title{margin:6px 0 0;font-size:clamp(22px,4vw,34px);letter-spacing:.04em}
   <div class="trend-wrap">
     <div class="chart-card">
       <h3>HOURLY CSAT</h3>
-      <div class="chart-sub">Running average of Knowledge + Courtesy · Target 4.9</div>
+      <div class="chart-sub">Running average of Knowledge + Courtesy · Target 4.9 · Zoomed 4.0 - 5.0</div>
       <div class="chart-box"><canvas id="csatChart"></canvas></div>
     </div>
     <div class="chart-card">
       <h3>HOURLY FCR %</h3>
-      <div class="chart-sub">Running % resolved on first interaction</div>
+      <div class="chart-sub">Running % resolved on first interaction · Zoomed 50% - 100%</div>
       <div class="chart-box"><canvas id="fcrChart"></canvas></div>
     </div>
   </div>
@@ -373,7 +373,7 @@ function drawLineChart(canvas, points, opts) {
     ctx.fillStyle = "#a3a3a3"; ctx.font = "11px system-ui"; ctx.textAlign = "right"; ctx.textBaseline = "alphabetic";
     for (let i = 0; i <= 4; i++) {
       const val = minY + (maxY - minY) * (1 - i / 4);
-      ctx.fillText(opts.isPct ? val.toFixed(0) + "%" : val.toFixed(1), pad.l - 8, pad.t + (i / 4) * chartH + 4);
+      ctx.fillText(opts.isPct ? val.toFixed(0) + "%" : val.toFixed(2), pad.l - 8, pad.t + (i / 4) * chartH + 4);
     }
 
     // X axis: time only, one label for every hour
@@ -434,13 +434,25 @@ function render() {
     ? `${total} surveys · ${hourLabel(hrs[0])} to ${hourLabel(hrs[hrs.length - 1])} · Paste new data in the book to refresh`
     : "Tap the book, paste your survey data at A1, press Done. Hours are built from the Date column.";
 
+  // zoomed ranges so dips are exaggerated
+  const csatVals = csatPts.filter(p => p.v != null).map(p => p.v);
+  const fcrVals = fcrPts.filter(p => p.v != null).map(p => p.v);
+
+  // CSAT: 4.0 to 5.0 by default, only goes lower if a score actually drops below 4
+  const csatLow = csatVals.length ? Math.min(...csatVals) : 4;
+  const csatMin = csatLow < 4 ? Math.max(1, Math.floor(csatLow)) : 4;
+
+  // FCR: 50% to 100% by default, only goes lower if a value actually drops below 50%
+  const fcrLow = fcrVals.length ? Math.min(...fcrVals) : 100;
+  const fcrMin = fcrLow < 50 ? Math.max(0, Math.floor(fcrLow / 10) * 10) : 50;
+
   requestAnimationFrame(() => {
     drawLineChart($id("csatChart"), csatPts, {
-      minY: 1, maxY: 5, target: 4.9, color: "#60a5fa", badBelow: 4.92,
+      minY: csatMin, maxY: 5, target: 4.9, color: "#60a5fa", badBelow: 4.92,
       emptyMsg: "No data yet — open the book and paste surveys"
     });
     drawLineChart($id("fcrChart"), fcrPts, {
-      minY: 0, maxY: 100, isPct: true, color: "#60a5fa", badBelow: 88,
+      minY: fcrMin, maxY: 100, isPct: true, color: "#60a5fa", badBelow: 88,
       emptyMsg: "No data yet — open the book and paste surveys"
     });
   });
