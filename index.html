@@ -337,15 +337,13 @@ function drawLineChart(canvas, points, opts) {
       const line1 = String(p.label || "");
       const valTxt = opts.isPct ? p.v.toFixed(1) + "%" : p.v.toFixed(2);
       const line2 = valTxt;
-      const line3 = p.n + " Survey";
       const bad = opts.badBelow != null && p.v < opts.badBelow;
 
       ctx.textAlign = "center"; ctx.textBaseline = "top";
       ctx.font = "bold 11px system-ui"; const w1 = ctx.measureText(line1).width;
       ctx.font = "bold 12px system-ui"; const w2 = ctx.measureText(line2).width;
-      const w3 = ctx.measureText(line3).width;
       const padX = 7, padY = 5, lineGap = 3, lineH = 13;
-      const bw = Math.max(w1, w2, w3) + padX * 2, bh = lineH * 3 + lineGap * 2 + padY * 2;
+      const bw = Math.max(w1, w2) + padX * 2, bh = lineH * 2 + lineGap + padY * 2;
       let bx = px - bw / 2;
       if (bx < 4) bx = 4;
       if (bx + bw > w - 4) bx = w - 4 - bw;
@@ -367,7 +365,6 @@ function drawLineChart(canvas, points, opts) {
       ctx.fillStyle = "#111";
       ctx.font = "bold 11px system-ui"; ctx.fillText(line1, textX, by + padY);
       ctx.font = "bold 12px system-ui"; ctx.fillText(line2, textX, by + padY + lineH + lineGap);
-      ctx.fillText(line3, textX, by + padY + (lineH + lineGap) * 2);
     });
 
     ctx.fillStyle = "#a3a3a3"; ctx.font = "11px system-ui"; ctx.textAlign = "right"; ctx.textBaseline = "alphabetic";
@@ -398,7 +395,7 @@ function drawLineChart(canvas, points, opts) {
       const hh = hits.find(x => x.i === found);
       paint(found);
       const valTxt = opts.isPct ? hh.p.v.toFixed(1) + "%" : hh.p.v.toFixed(2);
-      tip.innerHTML = `${esc(hh.p.label)}<br>${valTxt}<br>${hh.p.n} Survey`;
+      tip.innerHTML = `${esc(hh.p.label)}<br>${valTxt}`;
       tip.classList.add("on");
       let left = hh.px + 12, top = hh.py - 40;
       if (left + 120 > w) left = hh.px - 130;
