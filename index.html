@@ -58,7 +58,7 @@ h2.title{margin:6px 0 0;font-size:clamp(22px,4vw,34px);letter-spacing:.04em}
   <div class="trend-wrap">
     <div class="chart-card">
       <h3>HOURLY CSAT</h3>
-      <div class="chart-sub">Running average of Knowledge + Courtesy · Target 4.9 · Zoomed 4.0 - 5.0</div>
+      <div class="chart-sub">Running average of Knowledge and Courtesy, each averaged separately, then combined · Target 4.9 · Zoomed 4.0 - 5.0</div>
       <div class="chart-box"><canvas id="csatChart"></canvas></div>
     </div>
     <div class="chart-card">
@@ -162,10 +162,9 @@ function parsePaste(text) {
       if (cell && cell.toLowerCase() !== "pretuya" && cell.toLowerCase() !== "pass") comment = cell;
       else if (cell && cell.toLowerCase() === "pass" && !comment) comment = cell;
     }
+    // a missing rating stays blank (it is NOT copied from the other rating)
     if (nums[0]) k = nums[0];
     if (nums[1]) c = nums[1];
-    if (k && !c) c = k;
-    if (c && !k) k = c;
     out.push([agent, caseId, k, c, fcr, comment, date]);
   }
   return out;
@@ -218,7 +217,8 @@ function csCols(rs) {
   };
 }
 
-// Build hourly buckets from every row
+// Build hourly buckets from every row.
+// Knowledgeable and Courteous are tracked separately (own sum and own count).
 function hourlyMetrics(rs) {
   const buckets = {};
   if (!rs || rs.length < 2) return buckets;
@@ -252,13 +252,11 @@ function hourlyMetrics(rs) {
       }
       if (nums[0]) k = nums[0];
       if (nums[1]) c = nums[1];
-      if (k && !c) c = k;
-      if (c && !k) k = c;
     }
 
-    const a = k && c ? (k + c) / 2 : (k || c || 0);
-    const b = buckets[hr] || (buckets[hr] = { sum: 0, n: 0, fcrOk: 0, fcrN: 0 });
-    if (a) { b.sum += a; b.n++; }
+    const b = buckets[hr] || (buckets[hr] = { kSum: 0, kN: 0, cSum: 0, cN: 0, fcrOk: 0, fcrN: 0 });
+    if (k) { b.kSum += k; b.kN++; }
+    if (c) { b.cSum += c; b.cN++; }
     if (fcrIdx >= 0) { b.fcrN++; if (fcrIdx === 0) b.fcrOk++; }
   }
   return buckets;
@@ -289,7 +287,6 @@ function drawLineChart(canvas, points, opts) {
   const pad = { t: 74, r: 28, b: 42, l: 48 };
   const chartW = w - pad.l - pad.r, chartH = h - pad.t - pad.b;
   const minY = opts.minY, maxY = opts.maxY;
-  // inset first/last point slightly so edge labels don't hug the border
   const xAt = i => points.length === 1 ? pad.l + chartW / 2 : pad.l + (i / (points.length - 1)) * chartW;
   const yAt = v => pad.t + chartH - ((v - minY) / (maxY - minY)) * chartH;
   const hits = [];
@@ -335,8 +332,7 @@ function drawLineChart(canvas, points, opts) {
       }
 
       const line1 = String(p.label || "");
-      const valTxt = opts.isPct ? p.v.toFixed(1) + "%" : p.v.toFixed(2);
-      const line2 = valTxt;
+      const line2 = opts.isPct ? p.v.toFixed(1) + "%" : p.v.toFixed(2);
       const bad = opts.badBelow != null && p.v < opts.badBelow;
 
       ctx.textAlign = "center"; ctx.textBaseline = "top";
@@ -416,15 +412,25 @@ function render() {
   if (hrs.length) {
     // every hour from first to last, so the x-axis is a clean hourly interval
     // running (cumulative) totals: each hour includes every survey up to that hour
-    let cSum = 0, cN = 0, cOk = 0, cFN = 0;
+    // CSAT = average of (Knowledgeable average) and (Courteous average), each with its own count
+    let kSum = 0, kN = 0, couSum = 0, couN = 0, cOk = 0, cFN = 0, surveys = 0;
     for (let h = hrs[0]; h <= hrs[hrs.length - 1]; h++) {
       const m = b[h];
       const label = hourLabel(h);
-      if (m) { cSum += m.sum; cN += m.n; cOk += m.fcrOk; cFN += m.fcrN; }
-      csatPts.push({ label, v: m && cN ? +(cSum / cN).toFixed(2) : null, n: cN });
-      fcrPts.push({ label, v: m && cFN ? +(cOk / cFN * 100).toFixed(1) : null, n: cFN });
+      if (m) {
+        kSum += m.kSum; kN += m.kN;
+        couSum += m.cSum; couN += m.cN;
+        cOk += m.fcrOk; cFN += m.fcrN;
+        surveys += Math.max(m.kN, m.cN);
+      }
+      const parts = [];
+      if (kN) parts.push(kSum / kN);
+      if (couN) parts.push(couSum / couN);
+      const csat = parts.length ? parts.reduce((x, y) => x + y, 0) / parts.length : null;
+      csatPts.push({ label, v: m && csat != null ? +csat.toFixed(2) : null });
+      fcrPts.push({ label, v: m && cFN ? +(cOk / cFN * 100).toFixed(1) : null });
     }
-    total = cN;
+    total = surveys;
   }
 
   $id("note").textContent = hrs.length
