@@ -272,7 +272,11 @@ function drawLineChart(canvas, points, opts) {
   parent.appendChild(tip);
 
   const ctx = canvas.getContext("2d");
-  const dpr = devicePixelRatio || 1;
+  const zoom = (window.visualViewport && visualViewport.scale) || 1;
+let dpr = Math.max(devicePixelRatio || 1, 2) * Math.max(1, zoom);
+dpr = Math.min(dpr, 6);
+// keep the canvas under browser size limits
+dpr = Math.min(dpr, 8000 / Math.max(canvas.offsetWidth, canvas.offsetHeight, 1));
   const w = canvas.offsetWidth, h = canvas.offsetHeight;
   canvas.width = w * dpr; canvas.height = h * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -564,7 +568,9 @@ render();
 loadPublished();
 
 let resizeTimer;
-window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 120); });
+const rerender = () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); };
+window.addEventListener("resize", rerender);
+if (window.visualViewport) visualViewport.addEventListener("resize", rerender);
 </script>
 </body>
 </html>
